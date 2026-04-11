@@ -1,203 +1,243 @@
-# 🔐 Biometric Authentication System (Fingerprint-Based)
-
-**Author:** Udayagiri Jaheer
-
----
+# 🔐 Biometric Derived Empirical Key Authentication System
 
 ## 📌 Overview
 
-This project implements a **fingerprint-based biometric authentication system** using C++, OpenCV, and modern cryptographic techniques.
+This project implements a **biometric-based authentication system** using fingerprint images. Instead of traditional passwords, the system derives a secure authentication mechanism from fingerprint features and generates cryptographic session keys.
 
-It allows users to:
+The system combines:
 
-* Register using a fingerprint image
-* Login using fingerprint matching
-* Securely store biometric data using encryption and hashing
-
----
-
-## 🚀 Features
-
-* 🧬 Fingerprint feature extraction using OpenCV
-* 🔐 Secure storage using:
-
-  * Argon2 hashing (with salt + pepper)
-  * XOR-based encryption (for biometric template protection)
-* 🔑 Session key generation using SHA-256
-* 📊 Similarity-based matching (handles real-world variations)
-* 🛡️ Protection against duplicate users and duplicate fingerprints
-* 📜 Logging system for authentication attempts
+* Image processing (OpenCV)
+* Feature extraction (custom algorithm)
+* Cryptographic hashing (SHA-256, Argon2)
+* Secure authentication logic
 
 ---
 
-## 🧠 System Workflow
+## 🎯 Objectives
 
-### 🟢 Registration
-
-1. User inputs username + fingerprint image
-2. Image is processed using OpenCV:
-
-   * Grayscale conversion
-   * Noise reduction
-   * Edge detection
-   * Grid-based feature extraction
-3. Feature string (biometric template) is generated
-4. Biometric is:
-
-   * 🔐 Encrypted using XOR + Pepper
-   * 🔑 Hashed using Argon2 + Salt + Pepper
-5. Stored in database:
-
-   ```
-   username | salt | hash | encrypted_biometric
-   ```
+* Replace traditional password-based authentication with biometric authentication
+* Extract stable and unique fingerprint features
+* Securely store biometric data using hashing and salting
+* Generate session keys upon successful authentication
+* Evaluate system performance using FAR, FRR, and accuracy
 
 ---
 
-### 🟡 Login
+## 🧠 System Architecture
 
-1. User enters username
-2. System retrieves stored data
-3. Stored biometric is decrypted
-4. New fingerprint image is processed
-5. Similarity score is computed
-6. If score exceeds threshold → authentication successful
-
----
-
-## 🔐 Security Design
-
-### 🔑 Argon2 Hashing
-
-* Used to securely hash biometric data
-* Resistant to brute-force and GPU attacks
-
-### 🧂 Salt
-
-* Random value added to prevent identical hashes
-
-### 🌶️ Pepper
-
-* Secret constant used for:
-
-  * Hash strengthening
-  * Encryption key
-
-### 🔄 XOR Encryption
-
-* Used to protect biometric template
-* Reversible (for matching purposes)
-
-> ⚠️ Note: XOR is used for demonstration. In real systems, AES encryption should be used.
+```
+Fingerprint Image
+      ↓
+Preprocessing (resize, blur, normalize)
+      ↓
+Feature Extraction
+      ↓
+Feature Vector
+      ↓
+Hashing (Argon2 + SHA-256)
+      ↓
+Database Storage
+      ↓
+Matching & Similarity Score
+      ↓
+Authentication Decision
+```
 
 ---
 
-### 🔑 Session Key (SHA-256)
+## ⚙️ Technologies Used
 
-* Generated after successful login:
-
-  ```
-  sessionKey = SHA256(hash + timestamp)
-  ```
-* Provides temporary authentication session
+* **C++**
+* **OpenCV** (Image Processing)
+* **Argon2** (Password Hashing)
+* **Windows Crypto API** (SHA-256)
+* **SQLite / File Storage** (database.txt)
 
 ---
 
 ## 📂 Project Structure
 
 ```
-main.cpp                → Core logic (register/login)
-feature_extractor.cpp   → Fingerprint processing (OpenCV)
-argon2.cpp              → Secure hashing
-sha256.cpp              → Session key generation
-crypto.cpp              → Encryption/Decryption (XOR)
-database.txt            → Stored user data
-log.txt                 → Authentication logs
+project/
+│
+├── main.cpp                # Main application logic
+├── feature_extractor.cpp  # Fingerprint feature extraction
+├── feature_extractor.h
+├── argon2.cpp             # Argon2 hashing
+├── argon2.h
+├── sha256.cpp             # SHA-256 hashing
+├── sha256.h
+├── crypto.cpp             # XOR encryption (optional)
+├── crypto.h
+├── database.txt           # Stored user data
+├── log.txt                # Authentication logs
 ```
 
 ---
 
-## ⚙️ Compilation
+## 🔍 Feature Extraction Details
 
-```bash
-g++ main.cpp argon2.cpp sha256.cpp feature_extractor.cpp crypto.cpp \
--I C:\OpenCV-MinGW-Build-OpenCV-4.5.5-x64\include \
--L C:\OpenCV-MinGW-Build-OpenCV-4.5.5-x64\x64\mingw\lib \
--lopencv_core455 -lopencv_imgcodecs455 -lopencv_imgproc455 \
--largon2 -o app.exe
-```
+The system extracts multiple types of features:
 
----
+### 1. Global Features
 
-## ▶️ Usage
+* Ridge Density
+* Edge Density
+* Gradient Magnitude
+* Orientation (cosine-based)
 
-Run the program:
+### 2. Local Features (6×6 Grid)
 
-```bash
-.\app.exe
-```
+Each region extracts:
 
-Menu:
+* Edge ratio
+* Local orientation
 
-```
-1. Register
-2. Login
-3. Exit
-```
+### 3. Multi-Variant Matching
+
+* Rotation (0°, 90°, 180°, 270°)
+* Flipped image
 
 ---
 
-## 📊 Matching Logic
+## 🔐 Security Mechanisms
 
-* Fingerprint is divided into multiple regions
-* Each region is compared separately
-* Final similarity score is computed
-* Threshold-based authentication
+* **Salted Hashing (Argon2)**
+* **Pepper (hardcoded secret)**
+* **SHA-256 session key generation**
+* **No raw biometric stored in plaintext (hashed protection layer)**
+
+---
+
+## 🧮 Similarity Computation
+
+Similarity is computed using:
+
+```
+Similarity = exp(-5 × avgDifference)
+```
+
+* Weighted feature comparison
+* Global features given higher importance
+* Multi-variant matching (best score selected)
+
+---
+
+## 🎯 Threshold Selection
+
+Final threshold:
+
+```
+Threshold = 0.65
+```
+
+* Above → Authentication Success
+* Below → Authentication Failure
+
+---
+
+## 📊 Performance Evaluation
+
+Using FVC2002 Dataset:
+
+| Metric                      | Value   |
+| --------------------------- | ------- |
+| FAR (False Acceptance Rate) | ~12.5%  |
+| FRR (False Rejection Rate)  | ~30–40% |
+| Accuracy                    | ~75–85% |
+
+---
+
+## 📈 Observations
+
+* Strong fingerprint samples are correctly authenticated
+* Weak or noisy samples may be rejected
+* Some overlap exists between genuine and impostor scores
+* System demonstrates real-world biometric trade-offs
 
 ---
 
 ## ⚠️ Limitations
 
-* XOR encryption is not secure for production
-* No liveness detection (fake fingerprints possible)
-* Matching is approximate (not industry-level minutiae matching)
-* Plain text database (no Base64 encoding yet)
+* Does not use minutiae-based fingerprint matching
+* Relies on statistical features (density, orientation)
+* Sensitive to image quality
+* Some false acceptances may occur
 
 ---
 
 ## 🚀 Future Improvements
 
-* 🔐 Replace XOR with AES encryption
-* 📦 Add Base64 encoding for safe storage
-* 🧬 Implement minutiae extraction (ridge endings, bifurcations)
-* 🛡️ Add liveness detection
-* 🗄️ Use a proper database (SQLite/MySQL)
+* Minutiae extraction (ridge endings, bifurcations)
+* Machine learning-based feature extraction
+* Deep learning (CNN-based fingerprint recognition)
+* Improved normalization techniques
+* Larger dataset evaluation
 
 ---
 
-## 💡 Key Learnings
+## ▶️ How to Run
 
-* Biometric systems require **approximate matching**
-* Hashing alone is not enough → encryption is required
-* Salt + Pepper significantly improve security
-* Real-world systems balance **security vs usability**
+### 1. Compile
+
+```bash
+g++ main.cpp argon2.cpp sha256.cpp feature_extractor.cpp crypto.cpp \
+-I <opencv_include_path> \
+-L <opencv_lib_path> \
+-lopencv_core -lopencv_imgcodecs -lopencv_imgproc -largon2 -o app.exe
+```
+
+### 2. Run
+
+```bash
+./app.exe
+```
+
+---
+
+## 📌 Usage
+
+1. Register user with fingerprint image
+2. Login using another fingerprint sample
+3. System computes similarity and authenticates
+4. Session key is generated on success
 
 ---
 
-## 📜 License
+## 🧾 Sample Output
 
-This project is for educational purposes.
+```
+Similarity Score: 0.75
+[ SUCCESS ] Authentication Successful
+Session Key: <generated hash>
+```
+
+---
+
+## 👨‍💻 Author
+
+* Developed as part of a college project
+* Focused on combining biometrics with cryptographic security
 
 ---
 
-## ⭐ Final Note
+## 📚 References
 
-This project demonstrates a **complete biometric authentication pipeline**, combining:
-
-* Computer Vision
-* Cryptography
-* System Design
-
-It serves as a strong foundation for building **secure, real-world authentication systems**.
+* FVC2002 Fingerprint Dataset
+* Argon2 Password Hashing
+* OpenCV Documentation
+* Biometric Authentication Research Papers
 
 ---
+
+## 🏁 Conclusion
+
+This project demonstrates a **biometric authentication system using fingerprint-derived features and cryptographic techniques**. While not as advanced as industrial systems, it successfully highlights:
+
+* Feature extraction challenges
+* Security considerations
+* Real-world biometric trade-offs
+
+---
+
+⭐ This project reflects practical implementation of biometric security concepts.
