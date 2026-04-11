@@ -13,7 +13,15 @@
 
 using namespace std;
 
+// 🔐 Secret keys
 const string PEPPER = "MySuperSecretPepper123!";
+const string TRANSFORM_KEY = "BiometricSecretKey123";
+
+// ---------------- TRANSFORMATION ----------------
+double transformFeature(double value, int index) {
+    double key = (int)TRANSFORM_KEY[index % TRANSFORM_KEY.size()];
+    return sin(value * key);
+}
 
 // ---------------- LOG ----------------
 void logEvent(string username, string status) {
@@ -29,16 +37,25 @@ void logEvent(string username, string status) {
     log.close();
 }
 
-// ---------------- SAFE PARSE ----------------
+// ---------------- PARSE + TRANSFORM ----------------
 vector<double> parseFeatures(const string& s) {
     vector<double> v;
     string temp;
     stringstream ss(s);
 
+    int index = 0;
+
     while (getline(ss, temp, ',')) {
         try {
-            if (!temp.empty())
-                v.push_back(stod(temp));
+            if (!temp.empty()) {
+                double val = stod(temp);
+
+                // 🔥 APPLY TRANSFORMATION HERE
+                val = transformFeature(val, index);
+
+                v.push_back(val);
+                index++;
+            }
         } catch (...) {}
     }
     return v;
@@ -48,16 +65,12 @@ vector<double> parseFeatures(const string& s) {
 bool isLowQuality(const vector<double>& v) {
     if (v.size() < 4) return true;
 
-    double ridge = v[0];
-    double edge  = v[1];
-
-    if (ridge < 0.15 || edge < 0.05)
-        return true;
+    if (v[0] < 0.1) return true;
 
     return false;
 }
 
-// ---------------- FINAL SIMILARITY ----------------
+// ---------------- SIMILARITY ----------------
 double computeSingleSimilarity(const string& a, const string& b) {
 
     vector<double> v1 = parseFeatures(a);
@@ -75,20 +88,16 @@ double computeSingleSimilarity(const string& a, const string& b) {
 
         double weight = 1.0;
 
-        // Global features more important
-        if (i == 0) weight = 2.5;      // ridge density
-        else if (i == 1) weight = 2.5; // edge density
-        else if (i == 2) weight = 2.0; // gradient magnitude
-        else if (i == 3) weight = 2.0; // orientation
-        else weight = 1.0;
+        if (i == 0) weight = 2.5;
+        else if (i == 1) weight = 2.5;
+        else if (i == 2) weight = 2.0;
+        else if (i == 3) weight = 2.0;
 
         sum += weight * abs(v1[i] - v2[i]);
     }
 
-    // 🔥 Proper normalization
     double avgDiff = sum / (v1.size() * 2.0);
 
-    // 🔥 Balanced exponential scaling
     return exp(-5 * avgDiff);
 }
 
@@ -215,7 +224,6 @@ void loginUser() {
 
         cout << "Similarity Score: " << score << endl;
 
-        // 🔥 FINAL THRESHOLD
         if (score > 0.65) {
 
             cout << "\n[ SUCCESS ] Authentication Successful\n";
