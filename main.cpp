@@ -10,13 +10,12 @@
 #include "argon2.h"
 #include "sha256.h"
 #include "feature_extractor.h"
-#include "crypto.h"
 
 using namespace std;
 
 const string PEPPER = "MySuperSecretPepper123!";
 
-// Logging
+// ---------------- LOG ----------------
 void logEvent(string username, string status) {
     ofstream log("log.txt", ios::app);
 
@@ -30,28 +29,72 @@ void logEvent(string username, string status) {
     log.close();
 }
 
-// Similarity functions (same as before)
-double computeSingleSimilarity(const string& a, const string& b) {
-    vector<double> v1, v2;
+// ---------------- SAFE PARSE ----------------
+vector<double> parseFeatures(const string& s) {
+    vector<double> v;
     string temp;
+    stringstream ss(s);
 
-    stringstream ss1(a), ss2(b);
-
-    while (getline(ss1, temp, ',')) v1.push_back(stod(temp));
-    while (getline(ss2, temp, ',')) v2.push_back(stod(temp));
-
-    if (v1.size() != v2.size()) return 0;
-
-    double sum = 0;
-    for (int i = 0; i < v1.size(); i++) {
-        sum += abs(v1[i] - v2[i]);
+    while (getline(ss, temp, ',')) {
+        try {
+            if (!temp.empty())
+                v.push_back(stod(temp));
+        } catch (...) {}
     }
-
-    double avgDiff = sum / v1.size();
-    return exp(-10 * avgDiff);
+    return v;
 }
 
+// ---------------- QUALITY CHECK ----------------
+bool isLowQuality(const vector<double>& v) {
+    if (v.size() < 4) return true;
+
+    double ridge = v[0];
+    double edge  = v[1];
+
+    if (ridge < 0.15 || edge < 0.05)
+        return true;
+
+    return false;
+}
+
+// ---------------- FINAL SIMILARITY ----------------
+double computeSingleSimilarity(const string& a, const string& b) {
+
+    vector<double> v1 = parseFeatures(a);
+    vector<double> v2 = parseFeatures(b);
+
+    if (v1.size() != v2.size() || v1.empty())
+        return 0;
+
+    if (isLowQuality(v1) || isLowQuality(v2))
+        return 0;
+
+    double sum = 0;
+
+    for (int i = 0; i < v1.size(); i++) {
+
+        double weight = 1.0;
+
+        // Global features more important
+        if (i == 0) weight = 2.5;      // ridge density
+        else if (i == 1) weight = 2.5; // edge density
+        else if (i == 2) weight = 2.0; // gradient magnitude
+        else if (i == 3) weight = 2.0; // orientation
+        else weight = 1.0;
+
+        sum += weight * abs(v1[i] - v2[i]);
+    }
+
+    // 🔥 Proper normalization
+    double avgDiff = sum / (v1.size() * 2.0);
+
+    // 🔥 Balanced exponential scaling
+    return exp(-5 * avgDiff);
+}
+
+// ---------------- VARIANT MATCH ----------------
 double similarityScore(const string& a, const string& b) {
+
     vector<string> variantsA, variantsB;
     string temp;
 
@@ -64,7 +107,9 @@ double similarityScore(const string& a, const string& b) {
 
     for (string va : variantsA) {
         for (string vb : variantsB) {
+
             double score = computeSingleSimilarity(va, vb);
+
             if (score > bestScore)
                 bestScore = score;
         }
@@ -73,8 +118,9 @@ double similarityScore(const string& a, const string& b) {
     return bestScore;
 }
 
-// REGISTER
+// ---------------- REGISTER ----------------
 void registerUser() {
+
     string username, imagePath;
 
     cin.ignore();
@@ -86,54 +132,25 @@ void registerUser() {
     getline(cin, imagePath);
 
     string biometric = extractFeatures(imagePath);
+
     if (biometric == "") {
         cout << "\n[ ERROR ] Could not load image\n";
         return;
     }
 
-    ifstream db("database.txt");
-    string line;
-
-    while (getline(db, line)) {
-        stringstream ss(line);
-
-        string dbUser, dbSalt, dbHash, dbBioEnc;
-        ss >> dbUser >> dbSalt >> dbHash;
-        getline(ss, dbBioEnc);
-
-        if (!dbBioEnc.empty() && dbBioEnc[0] == ' ')
-            dbBioEnc = dbBioEnc.substr(1);
-
-        string dbBio = encryptDecrypt(dbBioEnc, PEPPER); // 🔓 decrypt
-
-        if (dbUser == username) {
-            cout << "\n[ ERROR ] Username already exists\n";
-            return;
-        }
-
-        double score = similarityScore(biometric, dbBio);
-        if (score > 0.90) {
-            cout << "\n[ ERROR ] Fingerprint already registered\n";
-            return;
-        }
-    }
-
-    db.close();
-
     string salt = generateSalt(16);
     string hash = argon2_hash_string(biometric + PEPPER, salt);
 
-    string encryptedBio = encryptDecrypt(biometric, PEPPER); // 🔐 encrypt
-
     ofstream out("database.txt", ios::app);
-    out << username << " " << salt << " " << hash << " " << encryptedBio << endl;
+    out << username << " " << salt << " " << hash << " " << biometric << endl;
     out.close();
 
     cout << "\n[ SUCCESS ] User Registered Successfully\n";
 }
 
-// LOGIN
+// ---------------- LOGIN ----------------
 void loginUser() {
+
     string username, imagePath;
 
     ifstream db("database.txt");
@@ -153,20 +170,21 @@ void loginUser() {
     string userSalt, userHash, userBio;
 
     while (getline(db, line)) {
+
         stringstream ss(line);
 
-        string dbUser, dbSalt, dbHash, dbBioEnc;
+        string dbUser, dbSalt, dbHash, dbBio;
         ss >> dbUser >> dbSalt >> dbHash;
-        getline(ss, dbBioEnc);
+        getline(ss, dbBio);
 
-        if (!dbBioEnc.empty() && dbBioEnc[0] == ' ')
-            dbBioEnc = dbBioEnc.substr(1);
+        if (!dbBio.empty() && dbBio[0] == ' ')
+            dbBio = dbBio.substr(1);
 
         if (dbUser == username) {
             userFound = true;
             userSalt = dbSalt;
             userHash = dbHash;
-            userBio = encryptDecrypt(dbBioEnc, PEPPER); // 🔓 decrypt
+            userBio = dbBio;
             break;
         }
     }
@@ -187,6 +205,7 @@ void loginUser() {
         getline(cin, imagePath);
 
         string biometric = extractFeatures(imagePath);
+
         if (biometric == "") {
             cout << "\n[ ERROR ] Could not load image\n";
             return;
@@ -196,7 +215,8 @@ void loginUser() {
 
         cout << "Similarity Score: " << score << endl;
 
-        if (score > 0.58) {
+        // 🔥 FINAL THRESHOLD
+        if (score > 0.65) {
 
             cout << "\n[ SUCCESS ] Authentication Successful\n";
             logEvent(username, "SUCCESS");
@@ -212,6 +232,7 @@ void loginUser() {
         }
 
         attempts++;
+
         cout << "\n[ FAILED ] Authentication Failed (" << attempts << "/3)\n";
         logEvent(username, "FAILED");
     }
@@ -220,11 +241,13 @@ void loginUser() {
     logEvent(username, "BLOCKED");
 }
 
-// MAIN
+// ---------------- MAIN ----------------
 int main() {
+
     int choice;
 
     while (true) {
+
         cout << "\n==== Biometric Auth System ====\n";
         cout << "1. Register\n2. Login\n3. Exit\n";
 
