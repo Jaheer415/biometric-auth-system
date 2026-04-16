@@ -1,268 +1,238 @@
-# 🔐 Biometric Derived Empirical Key Authentication System (Secure Version)
+# 🔐 Biometric-Derived Empirical Key Authentication System
 
 ## 📌 Overview
 
-This project implements a **secure biometric authentication system** using fingerprint images. Unlike traditional systems, it integrates **feature extraction, cryptographic hashing, and cancelable biometric transformation** to ensure both **accuracy and security**.
+This project implements a **secure biometric authentication system** that derives authentication data from fingerprint images instead of traditional passwords.
 
-The system authenticates users by comparing fingerprint-derived feature vectors instead of passwords and generates secure session keys upon successful login.
+It combines:
+
+* Computer Vision (feature extraction)
+* Binary feature encoding
+* Multi-sample biometric enrollment
+* Error correction (ECC)
+* Secure transformation
+* Cryptographic hashing (Argon2)
 
 ---
 
-## 🎯 Objectives
+## 🚀 Key Features
 
-* Replace password-based authentication with biometric authentication
-* Extract robust fingerprint features
-* Securely store biometric templates
-* Prevent biometric data leakage using transformation
-* Evaluate system performance using FAR, FRR, and accuracy
+### 🔹 Multi-Image Enrollment
+
+* Captures multiple fingerprint samples during registration
+* Uses **majority voting** to generate a stable biometric template
+* Significantly improves accuracy and robustness
+
+---
+
+### 🔹 Binary Feature Extraction
+
+* Converts fingerprint images into **fixed-length binary vectors**
+* Eliminates floating-point instability
+* Enables efficient comparison using Hamming distance
+
+---
+
+### 🔹 Error Correction (ECC)
+
+* Uses **bit repetition encoding (3x)** for noise tolerance
+* Corrects minor variations during login
+* Simulates a basic **fuzzy extractor mechanism**
+
+---
+
+### 🔹 Secure Transform Layer
+
+* Applies key-based transformation to protect biometric data
+* Prevents direct exposure of raw biometric templates
+
+---
+
+### 🔹 Argon2 Hashing
+
+* Uses **Argon2id** for secure hashing
+* Includes **salt + pepper**
+* Provides resistance against brute-force and offline attacks
+
+---
+
+### 🔹 Hamming Distance Matching
+
+* Compares binary feature vectors efficiently
+* Robust against small variations in biometric input
 
 ---
 
 ## 🧠 System Architecture
 
-```id="r0w3k2"
-Fingerprint Image
-      ↓
-Preprocessing
-      ↓
+```
+Registration:
+Fingerprint Images (Multiple)
+        ↓
 Feature Extraction
-      ↓
-Feature Transformation (Cancelable Biometrics)
-      ↓
-Hashing (Argon2 + Pepper)
-      ↓
+        ↓
+Binary Encoding
+        ↓
+Majority Voting (Stable Template)
+        ↓
+ECC Encoding
+        ↓
+Secure Transform
+        ↓
+Argon2 Hashing
+        ↓
 Database Storage
-      ↓
-Matching & Similarity
-      ↓
-Authentication Decision
-      ↓
-Session Key Generation
+
+Login:
+Fingerprint Image
+        ↓
+Feature Extraction
+        ↓
+Binary Encoding
+        ↓
+ECC Decoding (Error Correction)
+        ↓
+Secure Transform
+        ↓
+Hamming Distance Matching
+        ↓
+Authentication Result
 ```
 
 ---
 
-## ⚙️ Technologies Used
+## 🛠️ Technologies Used
 
 * **C++**
 * **OpenCV** (Image Processing)
 * **Argon2** (Secure Hashing)
-* **SHA-256 (Windows Crypto API)** (Session Keys)
-* **File-based storage (database.txt)**
+* **Windows Crypto API** (SHA-256)
+* Standard C++ Libraries
 
 ---
 
-## 📂 Project Structure
+## 📁 Project Structure
 
-```id="kvjv6y"
-project/
-│
-├── main.cpp                # Core system logic
-├── feature_extractor.cpp  # Feature extraction algorithm
+```
+.
+├── main.cpp                  # Core authentication logic
+├── feature_extractor.cpp     # Image processing + feature extraction
 ├── feature_extractor.h
-├── argon2.cpp             # Argon2 hashing
+├── argon2.cpp                # Argon2 wrapper
 ├── argon2.h
-├── sha256.cpp             # SHA-256 session key
+├── sha256.cpp                # SHA-256 implementation
 ├── sha256.h
-├── database.txt           # Stored user data
-├── log.txt                # Authentication logs
+├── database.txt              # Stored user data
+├── log.txt                   # Authentication logs (optional)
 ```
 
 ---
 
-## 🔍 Feature Extraction
+## ⚙️ How It Works
 
-The system extracts multiple levels of fingerprint features:
+### 🔐 Registration
 
-### 🔹 Global Features
+1. User provides username
+2. System captures **3 fingerprint images**
+3. Extracts binary features from each image
+4. Combines them using **majority voting**
+5. Applies ECC encoding (bit repetition)
+6. Applies secure transform
+7. Generates Argon2 hash
+8. Stores:
 
-* Ridge Density
-* Edge Density
-* Gradient Magnitude
-* Orientation (cosine-based)
-
-### 🔹 Local Features (6×6 Grid)
-
-Each region extracts:
-
-* Edge ratio
-* Local orientation
-
-### 🔹 Multi-Variant Matching
-
-* Rotation (0°, 90°, 180°, 270°)
-* Vertical flip
+   * Username
+   * Salt
+   * Hash
+   * Protected biometric data
 
 ---
 
-## 🔐 Security Enhancements (Key Contribution)
+### 🔓 Login
 
-### 🔥 Cancelable Biometrics (Transformation)
-
-To protect biometric templates:
-
-```id="4c9qk0"
-Feature → Transform (sin-based with secret key) → Stored
-```
-
-* Uses secret key: `TRANSFORM_KEY`
-* Applies non-reversible transformation using sine function
-* Ensures stored features cannot be reconstructed
+1. User provides fingerprint image
+2. Extracts binary features
+3. Applies ECC decoding (error correction)
+4. Reconstructs stable template
+5. Computes Hamming distance with stored template
+6. If within threshold → Authentication successful
 
 ---
 
-### 🔐 Hashing
+## 🔒 Security Features
 
-* Argon2 used with:
-
-  * Salt (random)
-  * Pepper (fixed secret)
-* Prevents database attacks
-
----
-
-### 🔑 Session Key
-
-* Generated using SHA-256
-* Based on hash + timestamp
-* Temporary access control
+* No raw biometric data stored
+* Template protection using transformation
+* Salt + Pepper + Argon2 hashing
+* Resistance to replay and database attacks
+* Noise-tolerant authentication
 
 ---
 
-## 🧮 Similarity Computation
+## 📊 Advantages
 
-```id="1dqv3g"
-Similarity = exp(-5 × avgDifference)
-```
-
-* Weighted comparison
-* Global features prioritized
-* Multi-variant best match selection
-
----
-
-## 🎯 Threshold Selection
-
-```id="l0sj3q"
-Threshold = 0.65
-```
-
-* Above → Accept
-* Below → Reject
-
----
-
-## 📊 Performance Evaluation
-
-Using FVC2002 dataset:
-
-| Metric                      | Value   |
-| --------------------------- | ------- |
-| FAR (False Acceptance Rate) | ~10–15% |
-| FRR (False Rejection Rate)  | ~30–40% |
-| Accuracy                    | ~75–85% |
-
----
-
-## 📈 Observations
-
-* Strong fingerprint samples are correctly authenticated
-* Weak samples may be rejected
-* Some overlap exists between genuine and impostor scores
-* Transformation does not affect matching accuracy
+* ✔ No passwords required
+* ✔ High accuracy using multi-sample enrollment
+* ✔ Robust against noise and variations
+* ✔ Secure storage of biometric data
+* ✔ Fast matching using binary vectors
 
 ---
 
 ## ⚠️ Limitations
 
-* No minutiae-based matching
-* Uses statistical features instead of ridge topology
-* Sensitive to poor image quality
-* Some false acceptances possible
+* Uses **simplified ECC (bit repetition)** instead of BCH/Reed-Solomon
+* AES encryption is simulated (not OpenSSL-based)
+* Requires controlled fingerprint input conditions
 
 ---
 
 ## 🚀 Future Improvements
 
-* Minutiae-based fingerprint recognition
-* Deep learning (CNN-based models)
-* Adaptive thresholding
-* Larger dataset evaluation
-* Hardware integration (sensor-based input)
+* 🔹 Implement **BCH-based fuzzy extractor**
+* 🔹 Integrate **OpenSSL AES encryption**
+* 🔹 Add **real-time fingerprint capture**
+* 🔹 Use **deep learning-based feature extraction**
+* 🔹 Improve threshold tuning dynamically
 
 ---
 
-## ▶️ How to Run
+## 🧪 How to Run
 
-### Compile
+1. Install dependencies:
 
-```bash id="jyg4dn"
-g++ main.cpp argon2.cpp sha256.cpp feature_extractor.cpp crypto.cpp \
--I <opencv_include_path> \
--L <opencv_lib_path> \
--lopencv_core -lopencv_imgcodecs -lopencv_imgproc -largon2 -o app.exe
+   * OpenCV
+   * Argon2 library
+
+2. Compile:
+
+```
+g++ main.cpp feature_extractor.cpp argon2.cpp sha256.cpp -o auth -lopencv_core -lopencv_imgcodecs -lopencv_imgproc
 ```
 
-### Run
+3. Run:
 
-```bash id="4rrn8f"
-./app.exe
 ```
-
----
-
-## 📌 Usage
-
-1. Register using fingerprint image
-2. Login with another sample of same fingerprint
-3. System computes similarity score
-4. Authentication is granted or denied
-5. Session key generated on success
-
----
-
-## 🧾 Sample Output
-
-```id="q0xfpn"
-Similarity Score: 0.75
-[ SUCCESS ] Authentication Successful
-Session Key: <generated hash>
+./auth
 ```
 
 ---
 
-## 🧠 Key Innovation
+## 📌 Use Cases
 
-> The system introduces a cancelable biometric transformation using a secret key to protect feature templates, ensuring non-reversibility while maintaining matching accuracy.
+* Secure authentication systems
+* Biometric login applications
+* Research in biometric cryptography
+* Privacy-preserving identity systems
 
 ---
 
 ## 👨‍💻 Author
 
-* Developed as part of a college project
-* Focused on combining biometrics with cryptographic security
+Developed as a **secure biometric authentication prototype** combining computer vision and cryptography.
 
 ---
 
-## 📚 References
+## ⭐ Final Note
 
-* FVC2002 Fingerprint Dataset
-* Argon2 Password Hashing
-* OpenCV Documentation
-* Biometric Authentication Research Papers
-
----
-
-## 🏁 Conclusion
-
-This project demonstrates a **secure biometric authentication system** that integrates:
-
-* Feature extraction
-* Cryptographic protection
-* Cancelable biometrics
-
-It highlights both the **capabilities and limitations** of feature-based biometric systems and provides a strong foundation for future improvements.
-
----
-
-⭐ This project demonstrates practical implementation of secure biometric authentication systems.
+This project demonstrates how biometric data can be transformed into a **secure, noise-tolerant authentication system**, bridging the gap between traditional biometrics and modern cryptographic security.
